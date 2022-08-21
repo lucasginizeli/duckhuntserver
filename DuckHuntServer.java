@@ -1,9 +1,12 @@
 import javax.xml.crypto.Data;
+import java.awt.*;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.NoSuchFileException;
+import java.util.NoSuchElementException;
 
 public class DuckHuntServer {
 
@@ -96,6 +99,23 @@ class DuckHunt {
                                     sendEventType("MOVE", opponentNumber);
                                 }
                                 break;
+                            case "MP":
+                                if (logic.hitShot(playerNumber, is.readInt(), is.readInt())) {
+                                    synchronized (logic) {
+                                        sendEventType("HIT SHOT", playerNumber);
+                                        sendEventType("OPPONENT HIT SHOT", opponentNumber);
+                                        sendScore(playerNumber);
+                                        sendScore(opponentNumber);
+                                    }
+                                    forceFlush();
+                                    sleep(1000);
+                                } else {
+                                    synchronized (logic) {
+                                        sendEventType("MISS", playerNumber);
+                                        sendEventType("OPPONENT MISS", opponentNumber);
+                                    }
+                                }
+                                break;
                         }
                         forceFlush();
                     } while (clientAlive[playerNumber] && clientAlive[opponentNumber]);
@@ -108,6 +128,10 @@ class DuckHunt {
                     } catch (IOException e1) {
                         e1.printStackTrace();
                     }
+                } catch (NoSuchElementException e) {
+
+                } catch (InterruptedException e) {
+//                    faz nada
                 }
             }
         }.start();
@@ -127,7 +151,7 @@ class DuckHunt {
             } catch (IOException e) {
                 clientAlive[playerNumber] = false;
                 sendEventType("WINNER", opponentNumber);
-//                TODO: placar
+                sendScore(opponentNumber);
             }
         }
     }
@@ -140,14 +164,14 @@ class DuckHunt {
             } catch (IOException e) {
                 clientAlive[playerNumber] = false;
                 sendEventType("WINNER", opponentNumber);
-//                TODO: placar
+                sendScore(opponentNumber);
             }
         }
     }
 
     void sendPositions(int playerNumber) {
         int opponentNumber = 1 - playerNumber;
-//        TODO: posicao do pato
+        sendPosition(logic.positionDuck(), playerNumber);
         sendPosition(logic.positionGun(playerNumber), playerNumber);
         sendPosition(logic.positionGun(opponentNumber), playerNumber);
     }
@@ -162,9 +186,33 @@ class DuckHunt {
     }
 
     public void start() {
-//        TODO: regressiva
+        startCountdown();
         logic.running = true;
         logic.execute();
+    }
+
+    public void startCountdown() {
+        int playerNumber = 0;
+        int opponentNumber = 1- playerNumber;
+        try {
+            send("3", playerNumber);
+            send("3", opponentNumber);
+            Thread.sleep(1000);
+            send("2", playerNumber);
+            send("2", opponentNumber);
+            Thread.sleep(1000);
+            send("1", playerNumber);
+            send("1", opponentNumber);
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+
+        }
+    }
+
+    public void sendScore(int playerNumber) {
+        int opponentNumber = 1 - playerNumber;
+        send(logic.points[playerNumber], playerNumber);
+        send(logic.points[opponentNumber], playerNumber);
     }
 
     public void forceFlush() {
@@ -180,7 +228,10 @@ class DuckHunt {
 class Logic {
     DuckHunt duckHunt;
     public Position positionGun[] = { new Position(0,0), new Position(0,0)};
-    public boolean running = false;
+    public boolean running = false, duckAlive = false;
+    public Rectangle duckSensitiveArea = new Rectangle(0, 0, 50, 50);
+    final Dimension gameArea = new Dimension(800, 600);
+    public int[] points = new int[2];
 
     Logic(DuckHunt duckHunt) {
         this.duckHunt = duckHunt;
@@ -193,6 +244,10 @@ class Logic {
 
     public Position positionGun(int playerNumber) {
         return positionGun[playerNumber];
+    }
+
+    public Position positionDuck() {
+        return new Position(duckSensitiveArea.x, duckSensitiveArea.y);
     }
 
     public void execute() {
@@ -216,12 +271,27 @@ class Logic {
     }
 
     public void logicTimer() {
-//        TODO: adicionar posicao do pato
+        newDuckPosition();
         synchronized (this) {
             duckHunt.sendEventType("MOVE", 0);
             duckHunt.sendEventType("MOVE", 1);
             duckHunt.forceFlush();
         }
+    }
+
+    public void newDuckPosition() {
+        duckAlive = true;
+        duckSensitiveArea.x = (int) (Math.random() * (gameArea.width - duckSensitiveArea.width));
+        duckSensitiveArea.y = (int) (Math.random() * (gameArea.height - duckSensitiveArea.height));
+    }
+
+    public boolean hitShot(int playerNumber, int x, int y) {
+        if (duckSensitiveArea.contains(x, y)) {
+            duckAlive = false;
+            points[playerNumber]++;
+            return true;
+        }
+        return false;
     }
 
 }
