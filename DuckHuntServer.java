@@ -102,10 +102,27 @@ class DuckHunt {
                             case "MP":
                                 if (logic.hitShot(playerNumber, is.readInt(), is.readInt())) {
                                     synchronized (logic) {
-                                        sendEventType("HIT SHOT", playerNumber);
-                                        sendEventType("OPPONENT HIT SHOT", opponentNumber);
-                                        sendScore(playerNumber);
-                                        sendScore(opponentNumber);
+
+                                        if (logic.points[1] >= 5) {
+                                            sendEventType("WINNER", playerNumber);
+                                            sendEventType("LOSER", opponentNumber);
+                                            sendScore(playerNumber);
+                                            sendScore(opponentNumber);
+                                            logic.points[0] = 0;
+                                            logic.points[1] = 0;
+                                        } else if (logic.points[0] >= 5) {
+                                            sendEventType("WINNER", opponentNumber);
+                                            sendEventType("LOSER", playerNumber);
+                                            sendScore(playerNumber);
+                                            sendScore(opponentNumber);
+                                            logic.points[0] = 0;
+                                            logic.points[1] = 0;
+                                        } else {
+                                            sendEventType("HIT SHOT", playerNumber);
+                                            sendEventType("OPPONENT HIT SHOT", opponentNumber);
+                                            sendScore(playerNumber);
+                                            sendScore(opponentNumber);
+                                        }
                                     }
                                     forceFlush();
                                     sleep(1000);
